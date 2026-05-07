@@ -17,7 +17,6 @@ export function RayBackground() {
         style={{ left: '50%', top: 200, width: 1700, height: 1700, transform: 'translateX(-50%) rotate(180deg)' }}
       >
         {[
-          { mt: -14, border: '18px solid white',                        z: 6, shadow: 'none' },
           { mt: -10, border: '20px solid rgba(52,211,153,0.45)',         z: 5, shadow: 'none' },
           { mt: -6,  border: '20px solid rgba(251,191,36,0.32)',         z: 4, shadow: 'none' },
           { mt: -3,  border: '20px solid rgba(239,68,68,0.22)',          z: 3, shadow: 'none' },
