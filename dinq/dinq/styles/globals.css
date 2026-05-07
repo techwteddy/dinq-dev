@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --dinq-bg:      #080810;
+  --dinq-surface: #0f0f1a;
+  --dinq-card:    #13131f;
+  --dinq-green:   #34d399;
+  --dinq-gold:    #fbbf24;
+  --dinq-red:     #ef4444;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  background: var(--dinq-bg);
+  color: white;
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+
+/* Monaco editor overrides */
+.monaco-editor .margin { background: transparent !important; }
+.monaco-editor-background { background: transparent !important; }
+
+/* Amharic font utility */
+.font-ethiopic {
+  font-family: 'Noto Sans Ethiopic', sans-serif;
+}
