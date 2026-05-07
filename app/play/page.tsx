@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { CodeEditor } from '@/components/editor/CodeEditor'
 import { PreviewPane } from '@/components/preview/PreviewPane'
 import { WorkspaceNav } from '@/components/ui/WorkspaceNav'
-import { PromptBar } from '@/components/ui/PromptBar'
+import { ChatPanel } from '@/components/ui/ChatPanel'
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay'
 
 const DEFAULT_CODE = `'use client'
@@ -27,16 +27,7 @@ export default function Welcome() {
             Dinq.dev
           </span>
         </h1>
-        <p className="text-white/50 text-lg">
-          Describe what you want to build above ↑
-        </p>
-        <button
-          onClick={() => setClicked(!clicked)}
-          className="px-8 py-3 rounded-full font-semibold text-white"
-          style={{ background: 'linear-gradient(135deg,#34d399,#059669)' }}
-        >
-          {clicked ? '🎉 ድንቅ!' : 'Click me'}
-        </button>
+        <p className="text-white/50 text-lg">Chat with Dinq AI to start building →</p>
       </div>
     </div>
   )
@@ -49,41 +40,65 @@ function PlayPageInner() {
 
   const [code, setCode] = useState(DEFAULT_CODE)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [lang, setLang] = useState<'en' | 'am'>(initialLang)
   const [layout, setLayout] = useState<'split' | 'editor' | 'preview'>('split')
+  const [messages, setMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([
+    { role: 'ai', text: lang === 'en'
+      ? "Hi! I'm Dinq AI 👋 Tell me what you want to build — I'll ask questions, plan it with you, and generate the code live."
+      : "ሰላም! እኔ ዲንቅ AI ነኝ 👋 ምን መገንባት እንደሚፈልጉ ይንገሩኝ — እጠይቃለሁ፣ እንደ እቅድ እናወጣና ኮዱን በቀጥታ እሰራለሁ።"
+    }
+  ])
   const [generationCount, setGenerationCount] = useState(0)
 
-  // Auto-generate on first load if prompt provided
   useEffect(() => {
     if (initialPrompt && generationCount === 0) {
-      generate(initialPrompt, 'build')
+      handleChat(initialPrompt)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // eslint-disable-line
 
-  const generate = useCallback(async (prompt: string, mode: 'build' | 'edit' | 'explain' = 'build') => {
+  const handleChat = useCallback(async (userMessage: string, mode: 'build' | 'edit' | 'explain' = 'build') => {
+    // Add user message
+    setMessages(prev => [...prev, { role: 'user', text: userMessage }])
     setLoading(true)
-    setError(null)
+
     try {
-      const res = await fetch('/api/generate', {
+      // First get AI planning/response
+      const planRes = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, currentCode: code, mode }),
+        body: JSON.stringify({ message: userMessage, history: messages, currentCode: code, lang }),
       })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      setCode(data.code)
-      setGenerationCount(c => c + 1)
-    } catch (e: any) {
-      setError(e.message ?? 'Generation failed')
+      const planData = await planRes.json()
+      
+      // Add AI response to chat
+      setMessages(prev => [...prev, { role: 'ai', text: planData.reply }])
+
+      // If AI decided to generate code, fetch it
+      if (planData.shouldGenerate) {
+        const codeRes = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            prompt: planData.codePrompt || userMessage, 
+            currentCode: code, 
+            mode: planData.mode || mode 
+          }),
+        })
+        const codeData = await codeRes.json()
+        if (codeData.code) {
+          setCode(codeData.code)
+          setGenerationCount(c => c + 1)
+        }
+      }
+    } catch (e) {
+      setMessages(prev => [...prev, { role: 'ai', text: 'Something went wrong. Please try again.' }])
     } finally {
       setLoading(false)
     }
-  }, [code])
+  }, [messages, code, lang])
 
   return (
     <div className="h-screen flex flex-col bg-[#080810] overflow-hidden">
-      {/* Top nav */}
       <WorkspaceNav
         lang={lang}
         setLang={setLang}
@@ -92,14 +107,18 @@ function PlayPageInner() {
         code={code}
       />
 
-      {/* Prompt bar */}
-      <PromptBar lang={lang} onSubmit={generate} loading={loading} />
-
-      {/* Main workspace */}
       <div className="flex-1 flex overflow-hidden relative">
+        {/* Chat panel — always visible */}
+        <ChatPanel
+          lang={lang}
+          messages={messages}
+          loading={loading}
+          onSend={handleChat}
+        />
+
         {/* Code editor */}
         {(layout === 'split' || layout === 'editor') && (
-          <div className={`flex flex-col ${layout === 'split' ? 'w-1/2 border-r border-white/[0.06]' : 'w-full'}`}>
+          <div className={`flex flex-col ${layout === 'split' ? 'flex-1 border-r border-white/[0.06]' : 'flex-1'}`}>
             <div className="flex items-center gap-2 px-4 py-2 border-b border-white/[0.06] bg-[#0a0a14]">
               <div className="flex gap-1.5">
                 <div className="w-3 h-3 rounded-full bg-[#ef4444]" />
@@ -114,21 +133,13 @@ function PlayPageInner() {
 
         {/* Preview pane */}
         {(layout === 'split' || layout === 'preview') && (
-          <div className={layout === 'split' ? 'w-1/2' : 'w-full'}>
+          <div className={layout === 'split' ? 'flex-1' : 'flex-1'}>
             <PreviewPane code={code} />
           </div>
         )}
 
-        {/* Loading overlay */}
         {loading && <LoadingOverlay lang={lang} />}
       </div>
-
-      {/* Error bar */}
-      {error && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-2 rounded-full">
-          {error} — <button onClick={() => setError(null)} className="underline">dismiss</button>
-        </div>
-      )}
     </div>
   )
 }
